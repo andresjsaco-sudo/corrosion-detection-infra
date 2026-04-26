@@ -128,6 +128,12 @@ class ApiStack(Stack):
 
         usuario_id = usuarios.add_resource("{id_usuario}")
         usuario_id.add_method("PUT", integ_usuarios, **opciones_auth)
+
+        # "eliminar" debe declararse ANTES del DELETE en {id_usuario} para evitar
+        # que API Gateway interprete el segmento como un path parameter distinto.
+        usuario_eliminar = usuario_id.add_resource("eliminar")
+        usuario_eliminar.add_method("DELETE", integ_usuarios, **opciones_auth)
+
         usuario_id.add_method("DELETE", integ_usuarios, **opciones_auth)
 
         # ── /reportes — reportes por planta y global ────────────────────────
