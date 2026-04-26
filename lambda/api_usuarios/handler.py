@@ -2,12 +2,13 @@
 CorrIA - Lambda de gestión de usuarios.
 
 Rutas:
-  POST   /usuarios               → crear usuario (solo admin)
-  GET    /usuarios               → listar usuarios (solo admin)
-  GET    /usuarios/me            → perfil propio (cualquier rol)
-  PUT    /usuarios/me            → actualizar perfil propio (cualquier rol)
-  PUT    /usuarios/{id_usuario}  → actualizar usuario (solo admin)
-  DELETE /usuarios/{id_usuario}  → deshabilitar usuario (solo admin)
+  POST   /usuarios                        → crear usuario (solo admin)
+  GET    /usuarios                        → listar usuarios (solo admin)
+  GET    /usuarios/me                     → perfil propio (cualquier rol)
+  PUT    /usuarios/me                     → actualizar perfil propio (cualquier rol)
+  PUT    /usuarios/{id_usuario}           → actualizar usuario (solo admin)
+  DELETE /usuarios/{id_usuario}/eliminar  → eliminar usuario permanentemente (solo admin)
+  DELETE /usuarios/{id_usuario}           → deshabilitar usuario (solo admin)
 """
 import json
 import logging
@@ -164,6 +165,7 @@ def lambda_handler(event: dict, context) -> dict:
             body = json.loads(event.get("body") or "{}")
             email = body.get("email")
             nombre = body.get("nombre", "")
+            cargo = body.get("cargo", "")
             rol = body.get("rol", "cliente")
             empresa = body.get("empresa", "Corpacero")
 
@@ -172,7 +174,7 @@ def lambda_handler(event: dict, context) -> dict:
             if rol not in ROLES_VALIDOS:
                 return _respuesta(400, {"error": f"rol debe ser uno de: {ROLES_VALIDOS}"})
 
-            # Crear usuario en Cognito — Cognito envía contraseña temporal por email
+            # Cognito genera la contraseña temporal y la envía por email al usuario nuevo
             resp_cognito = cognito.admin_create_user(
                 UserPoolId=USER_POOL_ID,
                 Username=email,
@@ -189,6 +191,7 @@ def lambda_handler(event: dict, context) -> dict:
                 None,
             )
 
+            # Asignar al grupo de Cognito correspondiente al rol
             cognito.admin_add_user_to_group(
                 UserPoolId=USER_POOL_ID,
                 Username=email,
@@ -203,12 +206,13 @@ def lambda_handler(event: dict, context) -> dict:
                 "rol": rol,
                 "empresa": empresa,
                 "nombre": nombre,
+                "cargo": cargo,
                 "fecha_creacion": datetime.now(timezone.utc).isoformat(),
                 "activo": True,
             }
             tabla.put_item(Item=item)
 
-            return _respuesta(201, {"mensaje": f"Usuario creado. Se envió contraseña temporal a {email}", "id_usuario": id_usuario_nuevo})
+            return _respuesta(201, {"mensaje": f"Usuario creado. Se envió contraseña temporal a {email}"})
 
         # ── PUT /usuarios/{id_usuario} — actualizar (solo admin) ─────────────
         elif metodo == "PUT" and resource == "/usuarios/{id_usuario}" and id_usuario:
@@ -258,6 +262,36 @@ def lambda_handler(event: dict, context) -> dict:
             )
             return _respuesta(200, {"mensaje": "Usuario actualizado", "id_usuario": id_usuario})
 
+        # ── DELETE /usuarios/{id_usuario}/eliminar — eliminación permanente (solo admin) ──
+        elif metodo == "DELETE" and resource == "/usuarios/{id_usuario}/eliminar" and id_usuario:
+            if not _es_admin(event):
+                return _respuesta(403, {"error": "Solo administradores pueden eliminar usuarios"})
+
+            # Evitar que el admin se elimine a sí mismo
+            email_propio = _email_usuario(event)
+            resp = tabla.get_item(Key={"id_usuario": id_usuario})
+            usuario = resp.get("Item")
+            if not usuario:
+                return _respuesta(404, {"error": f"Usuario {id_usuario} no encontrado"})
+
+            if usuario.get("email") == email_propio:
+                return _respuesta(400, {"error": "No puedes eliminar tu propia cuenta"})
+
+            email_objetivo = usuario.get("email")
+            if not email_objetivo:
+                return _respuesta(500, {"error": "El usuario no tiene email registrado en DynamoDB"})
+
+            # Eliminar permanentemente de Cognito
+            cognito.admin_delete_user(
+                UserPoolId=USER_POOL_ID,
+                Username=email_objetivo,
+            )
+
+            # Eliminar registro de DynamoDB
+            tabla.delete_item(Key={"id_usuario": id_usuario})
+
+            return _respuesta(200, {"mensaje": "Usuario eliminado permanentemente"})
+
         # ── DELETE /usuarios/{id_usuario} — deshabilitar (solo admin) ─────────
         elif metodo == "DELETE" and resource == "/usuarios/{id_usuario}" and id_usuario:
             if not _es_admin(event):
@@ -268,10 +302,14 @@ def lambda_handler(event: dict, context) -> dict:
             if not usuario:
                 return _respuesta(404, {"error": f"Usuario {id_usuario} no encontrado"})
 
-            # Deshabilitar en Cognito (bloquea el login automáticamente)
+            email_objetivo = usuario.get("email")
+            if not email_objetivo:
+                return _respuesta(500, {"error": "El usuario no tiene email registrado en DynamoDB"})
+
+            # Deshabilitar en Cognito (bloquea el login sin eliminar el usuario)
             cognito.admin_disable_user(
                 UserPoolId=USER_POOL_ID,
-                Username=usuario["email"],
+                Username=email_objetivo,
             )
 
             # Marcar como inactivo en DynamoDB
@@ -288,7 +326,7 @@ def lambda_handler(event: dict, context) -> dict:
                     ":ahora": ahora,
                 },
             )
-            return _respuesta(200, {"mensaje": "Usuario deshabilitado", "id_usuario": id_usuario})
+            return _respuesta(200, {"mensaje": "Usuario deshabilitado correctamente"})
 
         return _respuesta(405, {"error": f"Método {metodo} no permitido"})
 
