@@ -214,17 +214,50 @@ def lambda_handler(event: dict, context) -> dict:
 
             return _respuesta(201, {"mensaje": f"Usuario creado. Se envió contraseña temporal a {email}"})
 
-        # ── PUT /usuarios/{id_usuario} — actualizar (solo admin) ─────────────
+        # ── PUT /usuarios/{id_usuario} — actualizar o rehabilitar (solo admin) ──
         elif metodo == "PUT" and resource == "/usuarios/{id_usuario}" and id_usuario:
             if not _es_admin(event):
                 return _respuesta(403, {"error": "Solo administradores pueden modificar usuarios"})
 
+            body = json.loads(event.get("body") or "{}")
+
+            # Buscar siempre por PK directamente, nunca por GSI
             resp = tabla.get_item(Key={"id_usuario": id_usuario})
             usuario = resp.get("Item")
             if not usuario:
                 return _respuesta(404, {"error": f"Usuario {id_usuario} no encontrado"})
 
-            body = json.loads(event.get("body") or "{}")
+            # ── Flujo de reactivación ────────────────────────────────────────
+            if body.get("reactivar") is True:
+                email_objetivo = usuario.get("email")
+                if not email_objetivo:
+                    return _respuesta(500, {"error": "El usuario no tiene email registrado en DynamoDB"})
+
+                # Rehabilitar en Cognito (permite volver a hacer login)
+                cognito.admin_enable_user(
+                    UserPoolId=USER_POOL_ID,
+                    Username=email_objetivo,
+                )
+
+                # Marcar como activo y eliminar campos de deshabilitación
+                ahora = datetime.now(timezone.utc).isoformat()
+                tabla.update_item(
+                    Key={"id_usuario": id_usuario},
+                    UpdateExpression="SET #activo = :verdad, #fecha_reac = :ahora REMOVE #fecha_des",
+                    ExpressionAttributeNames={
+                        "#activo": "activo",
+                        "#fecha_reac": "fecha_reactivacion",
+                        "#fecha_des": "fecha_deshabilitacion",
+                    },
+                    ExpressionAttributeValues={
+                        ":verdad": True,
+                        ":ahora": ahora,
+                    },
+                )
+                usuario_actualizado = tabla.get_item(Key={"id_usuario": id_usuario}).get("Item", {})
+                return _respuesta(200, usuario_actualizado)
+
+            # ── Flujo de actualización de campos ─────────────────────────────
             # email es inmutable — filtrar campos permitidos para admin
             campos = {k: v for k, v in body.items() if k in CAMPOS_PERMITIDOS_ADMIN}
             if not campos:

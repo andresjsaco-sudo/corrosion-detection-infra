@@ -180,6 +180,7 @@ class ComputeStack(Stack):
                     "cognito-idp:AdminAddUserToGroup",
                     "cognito-idp:AdminRemoveUserFromGroup",
                     "cognito-idp:AdminDisableUser",
+                    "cognito-idp:AdminEnableUser",
                     "cognito-idp:AdminDeleteUser",
                     "cognito-idp:AdminGetUser",
                     "cognito-idp:ListUsers",
