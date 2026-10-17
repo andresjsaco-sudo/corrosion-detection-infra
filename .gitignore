@@ -9,3 +9,5 @@ lambda/layer_inference/
 *.so
 *.dylib
 *.zip
+__pycache__/
+*.pyc

@@ -1,3 +1,4 @@
+import os
 """
 CorrIA - Stack de API Gateway.
 Define los endpoints REST con autorizador Cognito y CORS habilitado.
@@ -15,7 +16,7 @@ from stacks.auth_stack import AuthStack
 
 # Orígenes permitidos para CORS
 CORS_ORIGINS = [
-    "https://corpacero.vercel.app",
+    os.environ.get("FRONTEND_ORIGIN", "https://example.vercel.app"),
     "http://localhost:5173",
 ]
 

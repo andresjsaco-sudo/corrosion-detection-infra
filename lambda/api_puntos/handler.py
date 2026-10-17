@@ -170,7 +170,7 @@ def lambda_handler(event: dict, context) -> dict:
             if not id_punto_nuevo:
                 return _respuesta(400, {"error": "id_punto es requerido"})
 
-            empresa = body.get("empresa", "Corpacero")
+            empresa = body.get("empresa", "Planta demo")
             sede = body.get("sede", "")
             ciudad = body.get("ciudad", "")
 

@@ -118,7 +118,7 @@ def _resolver_punto(ubicacion: dict, ts: str) -> tuple[str, dict]:
         return id_punto, punto
 
     elif modo == "planta_nueva":
-        empresa = ubicacion.get("empresa", "Corpacero")
+        empresa = ubicacion.get("empresa", "Planta demo")
         sede = ubicacion.get("sede", "")
         ciudad = ubicacion.get("ciudad", "")
         if not sede or not ciudad:

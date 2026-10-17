@@ -1,6 +1,8 @@
-# CorrIA — Infraestructura AWS
+# Corrosion detection: AWS infrastructure
 
-Sistema IoT de monitoreo de corrosión industrial para Corpacero S.A.S., desarrollado por estudiantes de Ing. Electrónica y Mecánica de la Universidad del Norte (Barranquilla, Colombia).
+Serverless backend for an IoT system that detects early corrosion on steel plates. Field cameras and Raspberry Pi nodes upload images; a YOLOv8 segmentation model running on ONNX Runtime in AWS Lambda classifies the corrosion, and results are served through a Cognito-secured REST API to a React dashboard. All infrastructure is defined as code with AWS CDK in Python.
+
+Frontend: [corrosion-detection-dashboard](https://github.com/andresjsaco-sudo/corrosion-detection-dashboard)
 
 ## Arquitectura
 
@@ -9,7 +11,7 @@ Sistema IoT de monitoreo de corrosión industrial para Corpacero S.A.S., desarro
   ─────────────────          ──────────────────────────────────────────────────
 
   React + Vite   ────────►  API Gateway REST (corria-api)
-  corpacero.vercel.app          │
+  your-frontend.vercel.app       │
                                 │  Cognito JWT Authorizer
                                 │  (corria-users)
                                 │
@@ -78,13 +80,13 @@ cdk deploy --all
 cdk deploy CorriaStorageStack
 ```
 
-Después del deploy, CDK imprimirá los outputs:
+Define `FRONTEND_ORIGIN` con la URL de tu frontend para CORS antes de desplegar. Después del deploy, CDK imprimirá los outputs:
 
 ```
 CorriaApiStack.ApiUrl          = https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/prod/
 CorriaAuthStack.UserPoolId     = us-east-1_xxxxxxxxx
 CorriaAuthStack.UserPoolClientId = xxxxxxxxxxxxxxxxxxxxxxxxxx
-CorriaStorageStack.BucketName  = corria-images-311208284976
+CorriaStorageStack.BucketName  = corria-images-<account-id>
 ```
 
 Usa estos valores en el archivo `.env.local` del frontend.
@@ -94,7 +96,7 @@ Usa estos valores en el archivo `.env.local` del frontend.
 Copia `.env.example` al repo del frontend como `.env.local`:
 
 ```bash
-# En el repo del frontend (Mockup-CorpoAcero-Corrosion)
+# En el repo del frontend (corrosion-detection-dashboard)
 cp /ruta/a/corria-infra/.env.example .env.local
 # Edita .env.local con los outputs del deploy
 ```
@@ -166,7 +168,7 @@ cdk deploy CorriaComputeStack  # redespliega solo la Lambda
 cdk destroy --all
 ```
 
-**Nota:** S3 y DynamoDB tienen `RemovalPolicy.RETAIN` — no se borran automáticamente.
+**Nota:** S3 y DynamoDB tienen `RemovalPolicy.RETAIN`: no se borran automáticamente.
 Para eliminarlos manualmente usa la consola de AWS o AWS CLI.
 
 ## Costos estimados (Free Tier)
@@ -199,7 +201,7 @@ corria-infra/
 │   │   ├── handler.py        # YOLOv8 ONNX + S3 + DynamoDB
 │   │   ├── requirements.txt  # onnxruntime, Pillow, numpy
 │   │   └── model/
-│   │       └── yolov8n-seg.onnx  ⚠️ PLACEHOLDER — reemplazar
+│   │       └── yolov8n-seg.onnx  ⚠️ PLACEHOLDER: reemplazar
 │   ├── api_puntos/handler.py
 │   ├── api_mediciones/handler.py
 │   ├── api_alertas/handler.py

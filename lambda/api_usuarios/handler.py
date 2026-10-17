@@ -94,7 +94,7 @@ def _crear_usuario_basico(email: str, claims: dict) -> dict:
         "email": email,
         "cognito_sub": claims.get("sub", ""),
         "rol": rol,
-        "empresa": "Corpacero",
+        "empresa": "Planta demo",
         "nombre": claims.get("given_name", ""),
         "fecha_creacion": datetime.now(timezone.utc).isoformat(),
     }
@@ -167,7 +167,7 @@ def lambda_handler(event: dict, context) -> dict:
             nombre = body.get("nombre", "")
             cargo = body.get("cargo", "")
             rol = body.get("rol", "cliente")
-            empresa = body.get("empresa", "Corpacero")
+            empresa = body.get("empresa", "Planta demo")
 
             if not email:
                 return _respuesta(400, {"error": "email es requerido"})

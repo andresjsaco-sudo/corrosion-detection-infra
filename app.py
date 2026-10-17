@@ -3,6 +3,8 @@
 CorrIA - Punto de entrada de la aplicación CDK.
 Orquesta todos los stacks de infraestructura en orden de dependencia.
 """
+import os
+
 import aws_cdk as cdk
 
 from stacks.storage_stack import StorageStack
@@ -13,8 +15,8 @@ from stacks.api_stack import ApiStack
 app = cdk.App()
 
 env = cdk.Environment(
-    account="311208284976",
-    region="us-east-1",
+    account=os.environ.get("CDK_DEFAULT_ACCOUNT"),
+    region=os.environ.get("CDK_DEFAULT_REGION", "us-east-1"),
 )
 
 # 1. Almacenamiento: S3 + DynamoDB

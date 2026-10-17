@@ -1,3 +1,4 @@
+import os
 """
 CorrIA - Stack de almacenamiento.
 Crea el bucket S3 para imágenes y las tres tablas DynamoDB.
@@ -33,7 +34,7 @@ class StorageStack(Stack):
                         s3.HttpMethods.POST,
                     ],
                     allowed_origins=[
-                        "https://corpacero.vercel.app",
+                        os.environ.get("FRONTEND_ORIGIN", "https://example.vercel.app"),
                         "http://localhost:5173",
                     ],
                     allowed_headers=["*"],
